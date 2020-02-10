@@ -1,27 +1,38 @@
 import map from './defaultMap.js'
 
 const DRAWING_SIZE_CASE = 5
-const SIZE_DNA = 10
-const NB_AGENT = 5
+const SIZE_DNA = 5
+const NB_AGENT = 200
 const DRAWING_SIZE_AGENT = 4
 const AGENT_LIFESPAN = 10
 const TICK_LIFETIME = 1
-const INITIAL_POSITION = {x: 2, y: 2}
-const TARGET_POSITION = {x: 30, y: 8}
+const INITIAL_POSITION = {x: 125, y: 25}
+const TARGET_POSITION = {x: 105, y: 100}
 const COLOR_LETTERS = '0123456789ABCDEF'
 
+// TODO: OPTI UNE FONCTION SIMPLE
+
 class Agent {
-  constructor(x, y) {
-    this.x = x
-    this.y = y
-    this.DNA = []
+  constructor(parentDNA) {
+    this.x = INITIAL_POSITION.x
+    this.y = INITIAL_POSITION.y
+    this.fitness = 0
+    this.DNA = new Array(SIZE_DNA).fill().map((elem, index) => {
+      return {
+        orientation: parentDNA[index].orientation + (- 10 + Math.random() * 20),
+        length: parentDNA[index].length + (- 0.1 + Math.random() * 0.2)
+      }
+    })
     this.lifetime = 0
     this.color = this.generateRandomColor()
-    this.buildDNA()
   }
 
-  buildDNA = () => {
-    this.DNA = new Array(SIZE_DNA).fill().map((elem, index) => ({orientation: Math.random() * 360, length: Math.random()}))
+  computeFitness = () => this.fitness = Math.sqrt((this.x - TARGET_POSITION.x)**2 + (this.y - TARGET_POSITION.y)**2)
+
+  move = () => {
+    this.x += Math.cos(this.DNA[Math.floor(this.lifetime/10)].orientation * Math.PI / 180) * 5 * this.DNA[Math.floor(this.lifetime/10)].length
+    this.y += Math.sin(this.DNA[Math.floor(this.lifetime/10)].orientation * Math.PI / 180) * 5 * this.DNA[Math.floor(this.lifetime/10)].length
+    this.lifetime += TICK_LIFETIME
   }
 
   generateRandomColor = () => {
@@ -31,18 +42,46 @@ class Agent {
     }
     return color
   }
-
-  move = () => {
-    this.x += Math.cos(this.DNA[this.lifetime].orientation * Math.PI / 180) * 5 * this.DNA[this.lifetime].length
-    this.y += Math.sin(this.DNA[this.lifetime].orientation * Math.PI / 180) * 5 * this.DNA[this.lifetime].length
-    this.lifetime += TICK_LIFETIME
-  }
 }
 
 class GeneticAlgorithm {
   constructor() {
-    this.listAgent = new Array(NB_AGENT).fill().map(() => new Agent(INITIAL_POSITION.x, INITIAL_POSITION.y))
+    this.nbGeneration = 0
+    this.nbSteps = 0
+    this.bestDNA = new Array(SIZE_DNA).fill().map((elem, index) => ({orientation: Math.random() * 360, length: Math.random()}))
+    this.listAgent = []
+    this.generateChildrens()
+  }
 
+  updateSteps = () => this.nbSteps++
+  resetSteps = () => this.nbSteps = 0
+
+  generateChildrens = () => {
+    this.listAgent = new Array(NB_AGENT).fill().map(() => new Agent(this.bestDNA))
+  }
+
+  computeNewBestDNA = () => {
+    console.log(this.bestDNA[0])
+    this.listAgent.forEach(agent => agent.computeFitness()) // We compute the fitness / reward of the current generation
+    let totalFitness = this.listAgent.reduce((acc, agent) => acc + agent.fitness, 0)
+    console.log(totalFitness / NB_AGENT)
+    let dna = new Array(SIZE_DNA).fill().map((elem, index) => {
+      return {orientation: 0, length: 0}
+    })
+    for (let i = 0; i < NB_AGENT; i++) {
+      for (let j = 0; j < SIZE_DNA; j++) {
+        dna[j].orientation += this.listAgent[i].DNA[j].orientation * (this.listAgent[i].fitness / totalFitness)
+        dna[j].length += this.listAgent[i].DNA[j].length * (this.listAgent[i].fitness / totalFitness)
+      }
+    }
+    for (let i = 0; i < SIZE_DNA; i++) {
+      dna[i].orientation = dna[i].orientation // / NB_AGENT // TODO: add learning rate
+      dna[i].length = dna[i].length // / NB_AGENT
+      // this.bestDNA[i].orientation += dna[i].orientation
+      // this.bestDNA[i].length += dna[i].length
+      this.bestDNA[i].orientation = dna[i].orientation
+      this.bestDNA[i].length = dna[i].length
+    }
   }
 }
 
@@ -60,16 +99,19 @@ ctx.canvas.height = height
 
 console.log(map)
 
-
 let cpt = 0
 const loop = () => {
   cpt++
-  if (cpt % 100 === 0) {
+  if (cpt % 2 === 0) {
     draw(map)
     genetic.listAgent.forEach(agent => agent.move())
+    genetic.updateSteps()
+    if (genetic.nbSteps === SIZE_DNA * 10) {
+      genetic.resetSteps()
+      genetic.computeNewBestDNA()
+      genetic.generateChildrens()
+    }
   }
-
-
   requestAnimationFrame(loop)
 }
 
@@ -91,7 +133,7 @@ const draw = map => {
     ctx.fill()
   })
   ctx.fillStyle = "#00ff00"
-  ctx.fillRect(TARGET_POSITION.x * DRAWING_SIZE_CASE, TARGET_POSITION.y * DRAWING_SIZE_CASE, DRAWING_SIZE_CASE, DRAWING_SIZE_CASE)
+  ctx.fillRect(TARGET_POSITION.x, TARGET_POSITION.y, DRAWING_SIZE_CASE, DRAWING_SIZE_CASE)
 
 }
 
@@ -215,6 +257,3 @@ function calculateInputs(){
   // console.log(jeu.listCar[i].rightQuarterDST)
   // console.log(jeu.listCar[i].leftQuarterDST)
 }
-
-let a1 = new Agent(1, 2)
-console.log(a1)
