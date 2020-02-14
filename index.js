@@ -1,37 +1,40 @@
 import map from './defaultMap.js'
 
 const DRAWING_SIZE_CASE = 5
-const SIZE_DNA = 5
+const SIZE_DNA = 25
 const NB_AGENT = 200
 const DRAWING_SIZE_AGENT = 4
 const AGENT_LIFESPAN = 10
 const TICK_LIFETIME = 1
 const INITIAL_POSITION = {x: 125, y: 25}
-const TARGET_POSITION = {x: 105, y: 100}
+const TARGET_POSITION = {x: 385, y: 320}
 const COLOR_LETTERS = '0123456789ABCDEF'
+const LEARNING_RATE = 0.05
 
-// TODO: OPTI UNE FONCTION SIMPLE
-
+// TODO: remove useless ctse
+// TODO: ne pas utiliser gradient, caper orientation 0,360 et utiliser pos moyenne
 class Agent {
   constructor(parentDNA) {
     this.x = INITIAL_POSITION.x
     this.y = INITIAL_POSITION.y
     this.fitness = 0
+    this.parentDNA = parentDNA
     this.DNA = new Array(SIZE_DNA).fill().map((elem, index) => {
       return {
-        orientation: parentDNA[index].orientation + (- 10 + Math.random() * 20),
-        length: parentDNA[index].length + (- 0.1 + Math.random() * 0.2)
+        orientation: (- 45 + Math.random() * 90) + parentDNA[index].orientation,
+        length: (- 0.1 + Math.random() * 0.2) + parentDNA[index].length
       }
     })
     this.lifetime = 0
     this.color = this.generateRandomColor()
   }
 
-  computeFitness = () => this.fitness = Math.sqrt((this.x - TARGET_POSITION.x)**2 + (this.y - TARGET_POSITION.y)**2)
+  computeFitness = () => this.fitness = 2500 - Math.sqrt((this.x - TARGET_POSITION.x)**2 + (this.y - TARGET_POSITION.y)**2)
+  // computeFitness = () => this.fitness = - Math.sqrt((this.x - TARGET_POSITION.x)**2 + (this.y - TARGET_POSITION.y)**2)
 
   move = () => {
-    this.x += Math.cos(this.DNA[Math.floor(this.lifetime/10)].orientation * Math.PI / 180) * 5 * this.DNA[Math.floor(this.lifetime/10)].length
-    this.y += Math.sin(this.DNA[Math.floor(this.lifetime/10)].orientation * Math.PI / 180) * 5 * this.DNA[Math.floor(this.lifetime/10)].length
+    this.x += Math.cos((this.DNA[Math.floor(this.lifetime/10)].orientation) * Math.PI / 180) * 5 * (this.DNA[Math.floor(this.lifetime/10)].length)
+    this.y += Math.sin((this.DNA[Math.floor(this.lifetime/10)].orientation) * Math.PI / 180) * 5 * (this.DNA[Math.floor(this.lifetime/10)].length)
     this.lifetime += TICK_LIFETIME
   }
 
@@ -61,26 +64,41 @@ class GeneticAlgorithm {
   }
 
   computeNewBestDNA = () => {
-    console.log(this.bestDNA[0])
+    console.log(this.bestDNA)
     this.listAgent.forEach(agent => agent.computeFitness()) // We compute the fitness / reward of the current generation
     let totalFitness = this.listAgent.reduce((acc, agent) => acc + agent.fitness, 0)
-    console.log(totalFitness / NB_AGENT)
-    let dna = new Array(SIZE_DNA).fill().map((elem, index) => {
-      return {orientation: 0, length: 0}
-    })
-    for (let i = 0; i < NB_AGENT; i++) {
-      for (let j = 0; j < SIZE_DNA; j++) {
-        dna[j].orientation += this.listAgent[i].DNA[j].orientation * (this.listAgent[i].fitness / totalFitness)
-        dna[j].length += this.listAgent[i].DNA[j].length * (this.listAgent[i].fitness / totalFitness)
+    console.log(totalFitness)
+    // for (let dnaElement = 0; dnaElement < SIZE_DNA; dnaElement++) {
+    //   let dna = {orientation: 0, length: 0}
+    //   for (let kid = 0; kid < NB_AGENT; kid++) {
+    //     dna.orientation += this.listAgent[kid].DNA[dnaElement].orientation * (this.listAgent[kid].fitness / totalFitness)
+    //     dna.length += this.listAgent[kid].DNA[dnaElement].length * (this.listAgent[kid].fitness / totalFitness)
+    //   }
+    //   console.log(dna)
+    //   this.bestDNA[dnaElement].orientation = this.bestDNA[dnaElement].orientation + dna.orientation * LEARNING_RATE
+    //   this.bestDNA[dnaElement].length = this.bestDNA[dnaElement].length + dna.length * LEARNING_RATE
+    // }
+
+    // let index = 0
+    // let max = 0
+    // for (let i = 0; i < NB_AGENT; i++) {
+    //   console.log(this.listAgent[i].fitness)
+    //   if (this.listAgent[i].fitness > max) {
+    //     max = this.listAgent[i].fitness
+    //     index = i
+    //   }
+    // }
+    // this.bestDNA = this.listAgent[index].DNA
+
+    for (let dnaElement = 0; dnaElement < SIZE_DNA; dnaElement++) {
+      let dna = {orientation: 0, length: 0}
+      for (let kid = 0; kid < NB_AGENT; kid++) {
+        dna.orientation += this.listAgent[kid].DNA[dnaElement].orientation * (this.listAgent[kid].fitness / totalFitness)
+        dna.length += this.listAgent[kid].DNA[dnaElement].length * (this.listAgent[kid].fitness / totalFitness)
       }
-    }
-    for (let i = 0; i < SIZE_DNA; i++) {
-      dna[i].orientation = dna[i].orientation // / NB_AGENT // TODO: add learning rate
-      dna[i].length = dna[i].length // / NB_AGENT
-      // this.bestDNA[i].orientation += dna[i].orientation
-      // this.bestDNA[i].length += dna[i].length
-      this.bestDNA[i].orientation = dna[i].orientation
-      this.bestDNA[i].length = dna[i].length
+      console.log(dna)
+      this.bestDNA[dnaElement].orientation = dna.orientation // this.bestDNA[dnaElement].orientation + dna.orientation * LEARNING_RATE
+      this.bestDNA[dnaElement].length = dna.length // this.bestDNA[dnaElement].length + dna.length * LEARNING_RATE
     }
   }
 }
@@ -102,7 +120,7 @@ console.log(map)
 let cpt = 0
 const loop = () => {
   cpt++
-  if (cpt % 2 === 0) {
+  if (cpt % 1 === 0) {
     draw(map)
     genetic.listAgent.forEach(agent => agent.move())
     genetic.updateSteps()
@@ -138,122 +156,3 @@ const draw = map => {
 }
 
 loop()
-
-
-// ctx.moveTo(car.x, car.y);
-// ctx.lineTo(car.x + Math.cos(car.orientation*Math.PI/180)*car.frontDST, car.y + Math.sin(car.orientation*Math.PI/180)*car.frontDST);
-// ctx.stroke();
-
-function calculateInputs(){
-  for(i=0; i<jeu.listCar.length; i++){
-    let orientation = jeu.listCar[i].orientation
-    let dstToObstacle = 0
-    let foundObstacle = false
-    let x = jeu.listCar[i].x
-    let y = jeu.listCar[i].y
-    let caseX = 0
-    let caseY = 0
-    // 0° in front of the car
-    while(!foundObstacle){
-      dstToObstacle++
-      caseX = Math.floor((x-jeu.positionX)/jeu.widthCase)
-      caseY = Math.floor((y-jeu.positionY)/jeu.widthCase)
-      if(jeu.map[caseX][caseY] == 0){
-        foundObstacle = true
-      }
-      else{
-        x += Math.cos((orientation)*Math.PI/180)
-        y += Math.sin((orientation)*Math.PI/180)
-      }
-    }
-    // console.log("0 degrees in front of you : " + dstToObstacle)
-    jeu.listCar[i].frontDST = dstToObstacle
-    dstToObstacle = 0 // Reinitialisation
-    foundObstacle = false
-    x = jeu.listCar[i].x
-    y = jeu.listCar[i].y
-    // 90° on the right
-    while(!foundObstacle){
-      dstToObstacle++
-      caseX = Math.floor((x-jeu.positionX)/jeu.widthCase)
-      caseY = Math.floor((y-jeu.positionY)/jeu.widthCase)
-      if(jeu.map[caseX][caseY] == 0){
-        foundObstacle = true
-      }
-      else{
-        x += Math.cos((orientation+90)*Math.PI/180)
-        y += Math.sin((orientation+90)*Math.PI/180)
-      }
-    }
-    // console.log("90 degrees right : " + dstToObstacle)
-    jeu.listCar[i].rightDST = dstToObstacle
-    dstToObstacle = 0 // Reinitialisation
-    foundObstacle = false
-    x = jeu.listCar[i].x
-    y = jeu.listCar[i].y
-
-    // 90° on the left
-    while(!foundObstacle){
-      dstToObstacle++
-      caseX = Math.floor((x-jeu.positionX)/jeu.widthCase)
-      caseY = Math.floor((y-jeu.positionY)/jeu.widthCase)
-      if(jeu.map[caseX][caseY] == 0){
-        foundObstacle = true
-      }
-      else{
-        x += Math.cos((orientation-90)*Math.PI/180)
-        y += Math.sin((orientation-90)*Math.PI/180)
-      }
-    }
-    // console.log("90 degrees left : " + dstToObstacle)
-    jeu.listCar[i].leftDST = dstToObstacle
-    dstToObstacle = 0 // Reinitialisation
-    foundObstacle = false
-    x = jeu.listCar[i].x
-    y = jeu.listCar[i].y
-    // 45° on the right
-    while(!foundObstacle){
-      dstToObstacle++
-      caseX = Math.floor((x-jeu.positionX)/jeu.widthCase)
-      caseY = Math.floor((y-jeu.positionY)/jeu.widthCase)
-      if(jeu.map[caseX][caseY] == 0){
-        foundObstacle = true
-      }
-      else{
-        x += Math.cos((orientation+45)*Math.PI/180)
-        y += Math.sin((orientation+45)*Math.PI/180)
-      }
-    }
-    // console.log("45 degrees right : " + dstToObstacle)
-    jeu.listCar[i].rightQuarterDST = dstToObstacle
-    dstToObstacle = 0 // Reinitialisation
-    foundObstacle = false
-    x = jeu.listCar[i].x
-    y = jeu.listCar[i].y
-    //45° on the left
-    while(!foundObstacle){
-      dstToObstacle++
-      caseX = Math.floor((x-jeu.positionX)/jeu.widthCase)
-      caseY = Math.floor((y-jeu.positionY)/jeu.widthCase)
-      if(jeu.map[caseX][caseY] == 0){
-        foundObstacle = true
-      }
-      else{
-        x += Math.cos((orientation-45)*Math.PI/180)
-        y += Math.sin((orientation-45)*Math.PI/180)
-      }
-    }
-    // console.log("45 degrees left : " + dstToObstacle)
-    jeu.listCar[i].leftQuarterDST = dstToObstacle
-    dstToObstacle = 0 // Reinitialisation
-    foundObstacle = false
-    x = jeu.listCar[i].x
-    y = jeu.listCar[i].y
-  }
-
-  // console.log(jeu.listCar[i].frontDST)
-  // console.log(jeu.listCar[i].rightDST)
-  // console.log(jeu.listCar[i].leftDST)
-  // console.log(jeu.listCar[i].rightQuarterDST)
-  // console.log(jeu.listCar[i].leftQuarterDST)
-}
